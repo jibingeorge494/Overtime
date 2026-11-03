@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>Overtime Planner</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head>
+<body>
+<style>
+/* Layout: calm single column. Essentials up front (status, next day, week total). Everything else folds open on tap. Tabs: Current, Analysis, History. */
+:root{
+  --sans:'Barlow',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --display:'Barlow Condensed','Arial Narrow',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --bg:#e9ecef; --surface:#ffffff; --tint:#fdf3df; --line:#d3d9df;
+  --fg:#12171c; --muted:#59636e; --accent:#b45309; --on-accent:#ffffff; --std:#7f8995;
+  --good:#15803d; --warn:#a16207; --bad:#b91c1c;
+  --start:#15803d; --on-start:#ffffff; --stop:#b91c1c; --on-stop:#ffffff;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#101419; --surface:#181e25; --tint:#2a2415; --line:#28313b;
+    --fg:#e7ebef; --muted:#8c97a3; --accent:#f5a623; --on-accent:#1a1200; --std:#7d8b99;
+    --good:#4ade80; --warn:#fbbf24; --bad:#f87171;
+    --start:#4ade80; --on-start:#052e14; --stop:#f87171; --on-stop:#340a0a;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#101419; --surface:#181e25; --tint:#2a2415; --line:#28313b;
+  --fg:#e7ebef; --muted:#8c97a3; --accent:#f5a623; --on-accent:#1a1200; --std:#7d8b99;
+  --good:#4ade80; --warn:#fbbf24; --bad:#f87171;
+  --start:#4ade80; --on-start:#052e14; --stop:#f87171; --on-stop:#340a0a;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--fg);
+  font:15px/1.45 var(--sans);
+  padding-block:20px 36px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+.app{max-width:520px;margin:0 auto;display:grid;gap:14px}
+.app>*,.panel>*{min-width:0}
+.panel{display:grid;gap:14px}
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.eyebrow{font:500 11px/1.2 var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0}
+h1{font:700 34px/1 var(--display);letter-spacing:.02em;text-transform:uppercase;margin:6px 0 0}
+.muted{color:var(--muted)}
+.hint{margin:12px 0 0;font-size:14px;color:var(--muted)}
+.good{color:var(--good)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* tabs */
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;background:var(--line);padding:4px;border-radius:10px}
+.tab{min-height:44px;border:0;border-radius:7px;background:transparent;color:var(--muted);font:600 14px var(--sans);letter-spacing:.02em;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--surface);color:var(--fg);box-shadow:0 1px 2px rgba(0,0,0,.18)}
+
+/* sections */
+.sec{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.status{font:700 28px/1.1 var(--display);letter-spacing:.02em;margin:0}
+.status-sub{margin:4px 0 0;font:500 13px/1.4 var(--mono);color:var(--muted);min-height:1.4em}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+.btn{min-height:56px;border:0;border-radius:8px;font:700 24px/1 var(--display);letter-spacing:.08em;text-transform:uppercase;cursor:pointer}
+.btn.start{background:var(--start);color:var(--on-start)}
+.btn.stop{background:var(--stop);color:var(--on-stop)}
+.btn:disabled{opacity:.3;cursor:default}
+.next .big{font:700 84px/1 var(--display);letter-spacing:.01em;color:var(--accent);margin:10px 0 6px}
+.next .big .std{color:var(--fg)}
+.next .big small{font-size:40px;color:var(--muted);margin:0 10px;font-weight:500}
+.next .sub{margin:0;font-size:15px;color:var(--muted)}
+.next .sub b{color:var(--fg);font-weight:600}
+.note{margin:14px 0 0;padding:12px 14px;border-radius:8px;font-size:14px;background:var(--tint);border:1px solid var(--line)}
+.note.bad{outline:1px solid var(--bad)}
+.verdict{font:700 56px/1 var(--display);letter-spacing:.01em;margin:10px 0 4px}
+.week .t{font:700 48px/1 var(--display);letter-spacing:.01em;margin:6px 0 0}
+.week .t small{font-size:26px;color:var(--muted);margin:0 8px;font-weight:500}
+.week .m{margin:4px 0 0;font-size:14px;color:var(--muted)}
+.bar{position:relative;height:10px;border-radius:99px;background:var(--bg);margin-top:14px;overflow:hidden}
+.bar i{position:absolute;top:0;bottom:0;transition:width .3s,left .3s}
+.bar i.s{left:0;background:var(--std)}
+.bar i.o{background:var(--accent)}
+.bar.over i.o{background:var(--bad)}
+.bar u{position:absolute;top:0;bottom:0;width:2px;background:var(--surface);text-decoration:none}
+.bar u.d40{left:calc(40/60*100%)}
+.bar u.g58{left:calc(58/60*100%)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin:10px 0 0;font-size:13px;color:var(--muted)}
+.legend b{color:var(--fg);font-weight:600}
+.key{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px}
+.key.s{background:var(--std)} .key.o{background:var(--accent)}
+.key.gs{background:var(--std);opacity:.3} .key.ln{height:2px;width:14px;border-radius:0;background:var(--fg);opacity:.55;vertical-align:middle}
+.satrow{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+.satrow b{font-weight:600;display:block}
+.satrow small{color:var(--muted);font-size:13px}
+.sw{position:relative;width:54px;height:32px;flex:none}
+.sw input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer;z-index:1}
+.sw span{position:absolute;inset:0;background:var(--line);border-radius:32px;transition:background .15s}
+.sw span::after{content:"";position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}
+.sw input:checked+span{background:var(--accent)}
+.sw input:checked+span::after{transform:translateX(22px)}
+.sw input:focus-visible+span{outline:3px solid var(--accent);outline-offset:2px}
+
+/* folds */
+.folds{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:0 16px}
+.folds details{border-top:1px solid var(--line)}
+.folds details:first-child{border-top:0}
+.folds summary{list-style:none;cursor:pointer;min-height:56px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-weight:600}
+.folds summary::-webkit-details-marker{display:none}
+.folds summary .r{font-weight:400;font-size:14px;color:var(--muted);margin-left:auto}
+.folds summary::after{content:"";width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);margin:-4px 2px 0 6px;flex:none}
+.folds details[open]>summary::after{transform:rotate(-135deg);margin-top:4px}
+.fbody{padding:2px 0 20px}
+.chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.chip{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:2px}
+.chip span{font-size:12px;color:var(--muted)}
+.chip b{font:700 22px/1.1 var(--display);letter-spacing:.02em}
+.rlist{margin-top:14px;display:grid}
+.rrow{display:grid;grid-template-columns:42px 54px 1fr auto;gap:8px;align-items:baseline;padding:10px 0;border-top:1px solid var(--line)}
+.rrow .rd{font-weight:600}
+.rrow .rdt{color:var(--muted);font-size:13px}
+.rrow .rh{font:700 20px/1 var(--display)}
+.rrow .ro{font-size:13px;color:var(--muted);text-align:right}
+
+/* seg + inputs */
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;background:var(--bg);padding:4px;border-radius:8px}
+.seg button{min-height:42px;border:0;border-radius:9px;background:transparent;color:var(--muted);font:600 15px var(--sans);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+input[type=text],select{
+  font:500 15px/1 var(--mono);color:var(--fg);background:var(--bg);
+  border:0;border-radius:10px;padding:13px 10px;width:100%;min-width:0;
+}
+.fld{display:grid;gap:8px;margin-top:14px}
+.fld:first-child{margin-top:0}
+.fld b{font-weight:600}
+.fld small{color:var(--muted);font-size:13px}
+.fld2{display:grid;grid-template-columns:minmax(0,1fr) 128px;gap:8px;align-items:center}
+
+/* week table + editor */
+.row{display:grid;grid-template-columns:48px minmax(0,1fr) minmax(0,1fr) 78px;gap:6px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.row.head{border-top:0;padding:0 0 6px;font-size:12px;color:var(--muted)}
+.row.today{background:var(--tint);border-radius:10px;padding-left:6px;padding-right:6px;margin:0 -6px}
+.dn b{display:block;font-weight:600;line-height:1.1}
+.dn span{display:block;font-size:12px;color:var(--muted)}
+.pd{font:700 17px/1.1 var(--display);text-align:right}
+.tcell{width:100%;min-width:0;min-height:46px;padding:6px 4px;border:0;border-radius:8px;background:var(--bg);color:var(--fg);font:500 13px/1.15 var(--mono);cursor:pointer;text-align:center}
+.tcell.on{outline:2px solid var(--accent)}
+.tcell sup{font-size:9px;color:var(--muted);margin-left:2px}
+.tcell.empty{color:var(--muted)}
+.editor{margin-top:14px;padding:14px;border-radius:8px;background:var(--tint);display:grid;gap:12px}
+.editor h3{margin:0;font:700 18px/1.2 var(--sans)}
+.editor .erow{display:grid;grid-template-columns:minmax(0,1fr) 128px;gap:8px;align-items:center}
+.editor input[type=text]{font:600 22px/1 var(--mono);padding:12px 10px;background:var(--surface)}
+.editor .seg{background:var(--surface)}
+.editor .eb{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px}
+.editor .emsg{margin:0;font-size:13px;min-height:1.2em}
+.eb button{min-height:46px;border-radius:10px;border:0;background:var(--surface);color:var(--fg);font:600 15px var(--sans);cursor:pointer}
+.eb button.save{background:var(--accent);color:var(--on-accent)}
+.rules{margin:0;padding:0;list-style:none;display:grid;gap:10px;font-size:15px}
+.rules li b{font-weight:600}
+.steps{margin:0 0 14px;padding-left:20px;display:grid;gap:8px;font-size:15px}
+.linkrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;margin-top:10px}
+.linkrow label{grid-column:1/-1;font-size:13px;color:var(--muted)}
+.link{background:var(--bg);border:0;color:var(--fg);border-radius:10px;padding:10px 14px;min-height:46px;font:600 14px var(--sans);cursor:pointer}
+.link.armed{color:var(--bad)}
+
+/* analysis */
+.sub2{margin:0 0 6px;font-size:14px;color:var(--muted)}
+.sec h2{font:600 13px/1.2 var(--mono);letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+.arow{display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:baseline;padding:12px 0;border-top:1px solid var(--line)}
+.arow .l{font-weight:600}
+.arow .v{font:700 26px/1 var(--display);letter-spacing:.02em;text-align:right}
+.arow .d{grid-column:1/-1;font-size:13px;color:var(--muted)}
+.srow{display:grid;grid-template-columns:54px minmax(0,1fr) 76px;gap:10px;align-items:center;min-height:50px}
+.srow label{font-weight:600;line-height:1.1}
+.srow label small{display:block;font-weight:400;font-size:11px;color:var(--muted)}
+.srow .sv{font:700 17px/1 var(--display);text-align:right}
+input[type=range]{width:100%;accent-color:var(--accent);height:32px;margin:0}
+.whatout{margin:12px 0 14px;padding:14px;border-radius:8px;background:var(--bg);border:1px solid var(--line)}
+.whatout .w{font:700 44px/1 var(--display);letter-spacing:.01em}
+.whatout .w small{font-size:24px;color:var(--muted);margin:0 7px;font-weight:500}
+.whatout p{margin:6px 0 0;font-size:14px;color:var(--muted)}
+.chartbox{position:relative}
+.chartbox svg{width:100%;height:auto;display:block}
+.ax{fill:var(--muted);font:500 10.5px var(--mono)}
+.ax.td{fill:var(--fg);font-weight:600}
+.gl{stroke:var(--line);stroke-width:1}
+.l8{stroke:var(--fg);stroke-width:1;opacity:.45}
+.m-s{fill:var(--std)} .m-o{fill:var(--accent)} .m-b{fill:var(--bad)}
+.g-s{fill:var(--std);opacity:.3} .g-o{fill:var(--accent);opacity:.3}
+.hit{fill:transparent;cursor:pointer}
+.hit:hover,.hit:focus{fill:var(--fg);fill-opacity:.07;outline:none}
+.tip{position:absolute;top:0;left:0;pointer-events:none;background:var(--surface);color:var(--fg);border-radius:10px;padding:10px 12px;box-shadow:0 6px 20px rgba(0,0,0,.22);z-index:5;min-width:140px;max-width:220px}
+.tip b{font:700 20px/1.1 var(--display);display:block}
+.tip span{display:block;color:var(--muted);font-size:12px;line-height:1.45}
+.ctable{display:grid;margin-top:6px}
+.ctable .crow{display:grid;grid-template-columns:40px minmax(0,1fr) minmax(0,1fr) 74px;gap:6px;padding:9px 0;border-top:1px solid var(--line);font-size:13px}
+.ctable .crow.head{color:var(--muted);border-top:0;font-size:12px}
+.ctable .crow span:last-child{text-align:right}
+
+/* history */
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:8px}
+.stat{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;display:grid;gap:2px}
+.stat span{font-size:12px;color:var(--muted)}
+.stat b{font:700 22px/1.1 var(--display)}
+.wk{border-top:1px solid var(--line)}
+.wk>summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:14px 0;align-items:center}
+.wk>summary::-webkit-details-marker{display:none}
+.wk .wd{font-weight:600}
+.wk .wt{font:700 24px/1 var(--display);text-align:right}
+.wk .wm{font-size:13px;color:var(--muted)}
+.pill{justify-self:end;font:600 12px var(--sans);padding:3px 10px;border-radius:99px;background:var(--bg)}
+.pill.n{color:var(--muted)}
+.hrow{display:grid;grid-template-columns:82px minmax(0,1fr) auto;gap:8px;padding:8px 0;border-top:1px solid var(--line);font-size:14px;align-items:baseline}
+.hrow .a{font-weight:600}
+.hrow .b{font-size:13px;color:var(--muted)}
+.hrow .c{font:700 16px var(--display);text-align:right}
+.wbody{padding:0 0 12px}
+.foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+#sync{font-size:12px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.bar i,.sw span,.sw span::after{transition:none}}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div><p class="eyebrow" id="weekLabel">Week of</p><h1>Overtime</h1></div>
+  </header>
+
+  <div class="tabs" role="tablist" aria-label="Sections">
+    <button class="tab" type="button" role="tab" id="tabCurrent" data-tab="current" aria-selected="true" aria-controls="pCurrent">Current</button>
+    <button class="tab" type="button" role="tab" id="tabAnalysis" data-tab="analysis" aria-selected="false" aria-controls="pAnalysis">Analysis</button>
+    <button class="tab" type="button" role="tab" id="tabHistory" data-tab="history" aria-selected="false" aria-controls="pHistory">History</button>
+  </div>
+
+  <div class="panel" id="pCurrent" role="tabpanel" aria-labelledby="tabCurrent">
+    <section class="sec" aria-label="Clock in and out">
+      <p class="status" id="stMain">Not clocked in</p>
+      <p class="status-sub" id="stSub" aria-live="polite"></p>
+      <div class="btns">
+        <button class="btn start" id="startBtn" type="button">Start</button>
+        <button class="btn stop" id="endBtn" type="button">End</button>
+      </div>
+    </section>
+
+    <section class="sec next" id="plan" aria-label="What to work next"></section>
+
+    <section class="sec week" aria-label="Week total">
+      <p class="eyebrow">Week total · 40 + overtime</p>
+      <p class="t" id="wTotal">0 + 0</p>
+      <p class="m" id="wMeta"></p>
+      <div class="bar" id="wBar"><i class="s" id="barS" style="width:0%"></i><i class="o" id="barO" style="left:0%;width:0%"></i><u class="d40"></u><u class="g58"></u></div>
+      <p class="legend">
+        <span><i class="key s"></i>Standard <b id="lgS">0 of 40</b></span>
+        <span><i class="key o"></i>Overtime <b id="lgO">0 of 18</b></span>
+        <span>Goal 40 + 18, cap 40 + 20</span>
+      </p>
+      <div class="satrow">
+        <div><b>Work Saturday this week</b><small>On: plan Mon to Sat. Off: Mon to Fri.</small></div>
+        <label class="sw"><input type="checkbox" id="satToggle" role="switch" aria-label="Work Saturday this week"><span></span></label>
+      </div>
+    </section>
+
+    <div class="folds">
+      <details id="planFold">
+        <summary>Range and days left <span class="r" id="planSum"></span></summary>
+        <div class="fbody" id="planMore"></div>
+      </details>
+      <details id="timesFold">
+        <summary>This week's times <span class="r" id="weekSum"></span></summary>
+        <div class="fbody">
+          <div class="row head"><span>Day</span><span>In</span><span>Out</span><span style="text-align:right">Paid</span></div>
+          <div id="days"></div>
+          <div class="editor" id="editor" hidden></div>
+          <p class="hint">Tap a time to change it. Pick AM or PM, type digits like 700 or 330, then Save. A shift past midnight works: In 3:00 PM and Out 2:00 AM is one shift. Sunday is manual only, so tap its times to enter them. Nothing changes until you save. After 6 PM with nothing logged (11 PM on the afternoon shift), today is left out of the plan.</p>
+        </div>
+      </details>
+      <details>
+        <summary>Shift and start time <span class="r" id="setSum"></span></summary>
+        <div class="fbody">
+          <div class="fld">
+            <div><b>Shift</b><br><small>Clock-out times and the earliest start use this shift.</small></div>
+            <div class="seg" id="shiftSeg" role="group" aria-label="Shift">
+              <button type="button" data-shift="day" aria-pressed="true">Day</button>
+              <button type="button" data-shift="aft" aria-pressed="false">Afternoon</button>
+            </div>
+          </div>
+          <div class="fld">
+            <label for="usual"><b>Usual start time</b><br><small>For this shift.</small></label>
+            <select id="usual"></select>
+          </div>
+        </div>
+      </details>
+      <details id="autoDet">
+        <summary>Automatic punching</summary>
+        <div class="fbody" id="autoBody"></div>
+      </details>
+      <details>
+        <summary>Rules in use</summary>
+        <div class="fbody">
+          <ul class="rules">
+            <li><b>Same shift.</b> Come back within 12 hours of your first Start and it counts as the same shift. The leave before it is cancelled, so the other plant and lunch drives stay paid.</li>
+            <li><b>New day.</b> After more than 12 hours it is a new day and your last leave stands. A new shift can start no earlier than 4 hours before your usual start.</li>
+            <li><b>Pay week.</b> Runs Sunday to Saturday. A new week starts at midnight going into Sunday, and the finished week moves to History. A shift that starts Saturday and runs past midnight stays on Saturday.</li>
+            <li><b>Sunday.</b> First day of the week. Manual entry only. No Start or End.</li>
+            <li><b>Clock in</b> rounds up to the next 15 minutes. 6:48 counts as 7:00.</li>
+            <li><b>Clock out</b> rounds down to the previous 15 minutes. 3:50 counts as 3:45.</li>
+            <li><b>Lunch.</b> 30 minutes unpaid, taken off once a day.</li>
+            <li><b>Each day.</b> 8 standard hours, 12 at most. Shown as 8 + extra.</li>
+            <li><b>Each week.</b> 40 standard, then overtime. Aim for 40 + 18, never past 40 + 20.</li>
+          </ul>
+        </div>
+      </details>
+    </div>
+  </div>
+
+  <div class="panel" id="pAnalysis" role="tabpanel" aria-labelledby="tabAnalysis" hidden>
+    <section class="sec" aria-label="Same hours every remaining day">
+      <h2>If every day left is the same</h2>
+      <div id="anaProj"></div>
+    </section>
+    <section class="sec" aria-label="What-if sliders">
+      <h2>What if I work</h2>
+      <div id="anaWhat"></div>
+    </section>
+    <section class="sec" aria-label="Daily hours chart">
+      <h2>Paid hours by day</h2>
+      <div class="chartbox" id="chartBox">
+        <div id="chartMount"></div>
+        <div class="tip" id="tip" hidden></div>
+      </div>
+      <p class="legend" id="chartLegend">
+        <span><i class="key s"></i>Standard</span>
+        <span><i class="key o"></i>Overtime</span>
+        <span><i class="key gs"></i>Plan, even split</span>
+        <span><i class="key ln"></i>8 hour line</span>
+      </p>
+      <div id="chartTable" hidden></div>
+      <p style="margin:12px 0 0"><button class="link" id="chartTblBtn" type="button">Show as table</button></p>
+    </section>
+  </div>
+
+  <div class="panel" id="pHistory" role="tabpanel" aria-labelledby="tabHistory" hidden>
+    <section class="sec" aria-label="Past weeks">
+      <h2>Weeks logged</h2>
+      <div id="histBody"></div>
+    </section>
+  </div>
+
+  <div class="foot">
+    <span id="sync">Saved on this device only</span>
+    <button class="link" id="clearBtn" type="button">Clear this week</button>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+var STD_DAY=8,MAX_DAY=12,STD_WEEK=40,TARGET=58,CAP=60,LUNCH=30,H12=12*3600000,EARLY=240;
+var NAMES=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+var FULL=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+var LS='overtimePlannerV3',LS_FLAG='overtimePlannerV3LastFlag',LS_TAB='overtimePlannerV3Tab';
+var IN_ARTIFACT=!!(window.claude&&window.claude.use);
+function $(id){return document.getElementById(id);}
+function pad(n){return String(n).padStart(2,'0');}
+function toMin(s){var p=s.split(':');return (+p[0])*60+(+p[1]);}
+function hhmm(d){return pad(d.getHours())+':'+pad(d.getMinutes());}
+function clock(min){var m=((min%1440)+1440)%1440,h=Math.floor(m/60);return ((h+11)%12+1)+':'+pad(m%60)+' '+(h>=12?'PM':'AM');}
+function tval(s){return s?clock(toMin(s)):'';}
+function ceil15(m){return Math.ceil(m/15)*15;}
+function floor15(m){return Math.floor(m/15)*15;}
+function ceilQ(x){return Math.ceil(x*4-1e-9)/4;}
+function floorQ(x){return Math.floor(x*4+1e-9)/4;}
+function snap15(s){var m=ceil15(toMin(s))%1440;return pad(Math.floor(m/60))+':'+pad(m%60);}
+function tr(x){return String(Math.round(x*100)/100);}
+function parts(h){var neg=h<0;h=Math.abs(h);var t=Math.round(h*60);return {neg:neg,h:Math.floor(t/60),m:t%60};}
+function fmt(h){var p=parts(h);return (p.neg?'-':'')+p.h+'h '+pad(p.m)+'m';}
+function split(h){return tr(Math.min(h,STD_DAY))+' + '+tr(Math.max(0,h-STD_DAY));}
+function weekSplit(w){return tr(Math.min(w,STD_WEEK))+' + '+tr(Math.max(0,w-STD_WEEK));}
+function weekBig(w){return tr(Math.min(w,STD_WEEK))+'<small>+</small>'+tr(Math.max(0,w-STD_WEEK));}
+function fmtDate(d){return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});}
+function plural(n,w){return n+' '+w+(n===1?'':'s');}
+
+/* paid time for one shift. A shift past midnight has Out earlier than In. */
+function paid(inS,outS){
+  if(!inS||!outS)return 0;
+  var a=toMin(inS),o=toMin(outS);
+  var b=o<a?o+1440:o;
+  var m=floor15(b)-ceil15(a)-LUNCH;
+  return m>0?m/60:0;
+}
+function crosses(d){return !!(d&&d.in&&d.out&&toMin(d.out)<toMin(d.in));}
+
+/* typed time: digits plus AM or PM. Letters typed after the digits win. 13 to 23 is read as 24-hour. */
+function parseEntry(str,ap){
+  var s=String(str).trim().toLowerCase();
+  var m=/^(\d{1,2})(?::?(\d{2}))?\s*(a|p)?m?$/.exec(s);
+  if(!m)return null;
+  var h=+m[1],mn=m[2]?+m[2]:0,l=m[3];
+  if(mn>59||h>23)return null;
+  if(l){ap=l==='a'?'AM':'PM';if(h<1||h>12)return null;}
+  if(h>=1&&h<=12){
+    if(ap==='PM'&&h<12)h+=12;
+    if(ap==='AM'&&h===12)h=0;
+  }
+  return pad(h)+':'+pad(mn);
+}
+
+function blank(){return {wk:'sun',weeks:{},shift:'day',starts:{day:'07:00',aft:'15:00'}};}
+/* Older saves grouped days Monday to Sunday. Regroup every logged day by its real date into Sunday to Saturday weeks. */
+function monToSun(weeks){
+  var out={};
+  function wkOf(d){return keyOf(new Date(d.getFullYear(),d.getMonth(),d.getDate()-d.getDay()));}
+  Object.keys(weeks).forEach(function(k){
+    var w=weeks[k];if(!w)return;
+    var base=parseKey(k),days=w.days||{};
+    Object.keys(days).forEach(function(i){
+      var day=days[i];if(!day)return;
+      var dt=new Date(base.getFullYear(),base.getMonth(),base.getDate()+(+i));
+      var sk=wkOf(dt);
+      var nw=out[sk]||(out[sk]={sat:false,days:{}});
+      nw.days[dt.getDay()]=day;
+    });
+    if(w.sat){
+      var st=new Date(base.getFullYear(),base.getMonth(),base.getDate()+5),sk2=wkOf(st);
+      (out[sk2]||(out[sk2]={sat:false,days:{}})).sat=true;
+    }
+  });
+  return out;
+}
+function norm(d){
+  var s=blank();
+  if(d&&typeof d==='object'){
+    if(d.weeks&&typeof d.weeks==='object')s.weeks=(d.wk==='sun')?d.weeks:monToSun(d.weeks);
+    if(d.shift==='aft')s.shift='aft';
+    if(d.starts&&typeof d.starts==='object'){
+      if(typeof d.starts.day==='string'&&d.starts.day)s.starts.day=d.starts.day;
+      if(typeof d.starts.aft==='string'&&d.starts.aft)s.starts.aft=d.starts.aft;
+    }
+  }
+  s.starts.day=snap15(s.starts.day);s.starts.aft=snap15(s.starts.aft);
+  Object.keys(s.weeks).forEach(function(k){
+    var w=s.weeks[k];
+    if(w&&w.days)Object.keys(w.days).forEach(function(i){
+      var day=w.days[i];
+      if(!day||(!day.in&&!day.out))delete w.days[i];
+    });
+  });
+  return s;
+}
+function loadLocal(){
+  try{
+    var raw=localStorage.getItem(LS);
+    if(!raw)raw=localStorage.getItem('overtimePlannerV2');
+    return norm(JSON.parse(raw));
+  }catch(e){return blank();}
+}
+function cacheLocal(){try{localStorage.setItem(LS,JSON.stringify(state));}catch(e){}}
+
+var state=loadLocal();
+cacheLocal();
+var ref=null,writing=false,dirty=false;
+var flashMsg='',flashTimer=0,clearArmed=false,clearTimer=0;
+var pendingFlag='',flagTimer=0;
+var tab='current',editing=null,what={key:'',vals:{},w:0,items:[]},showTable=false,chartRows=[],openWk={};
+try{var st=localStorage.getItem(LS_TAB);if(st==='analysis'||st==='history')tab=st;}catch(e){}
+
+function getWeek(key){
+  if(!state.weeks[key])state.weeks[key]={sat:false,days:{}};
+  var w=state.weeks[key];
+  if(!w.days)w.days={};
+  return w;
+}
+function hasData(){
+  return Object.keys(state.weeks).some(function(k){var w=state.weeks[k];return w&&w.days&&Object.keys(w.days).length;});
+}
+function done(d){return !!(d&&d.in&&d.out);}
+function dayPaid(d){return d?paid(d.in,d.out):0;}
+function weekTotal(wk){var w=0;for(var i=0;i<=6;i++){var d=wk.days[i];if(done(d))w+=dayPaid(d);}return w;}
+function parseKey(k){var p=k.split('-');return new Date(+p[0],+p[1]-1,+p[2]);}
+
+/* The pay week runs Sunday to Saturday. Day 0 is Sunday, day 6 is Saturday. A new week starts at midnight going into Sunday. */
+function keyOf(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function view(now){
+  var real=now.getDay();
+  var sun=new Date(now.getFullYear(),now.getMonth(),now.getDate()-real);
+  return {real:real,today:real,sun:sun,key:keyOf(sun)};
+}
+function dayDate(key,i){var d=parseKey(key);d.setDate(d.getDate()+i);return d;}
+function absIn(key,i,d){
+  var t=dayDate(key,i),m=toMin(d.in);
+  t.setHours(Math.floor(m/60),m%60,0,0);
+  return t;
+}
+/* shifts that started today or yesterday, newest first. Sunday is manual only, so it is never a punch target. */
+function candidates(now){
+  var out=[];
+  [0,-1].forEach(function(off){
+    var dt=new Date(now.getFullYear(),now.getMonth(),now.getDate()+off),vv=view(dt);
+    if(vv.real===0)return;
+    var w=state.weeks[vv.key],d=w&&w.days[vv.real];
+    if(d&&d.in){var a=absIn(vv.key,vv.real,d);if(a<=now)out.push({key:vv.key,i:vv.real,d:d,a:a});}
+  });
+  out.sort(function(x,y){return y.a-x.a;});
+  return out;
+}
+function activeShift(now){
+  var c=candidates(now)[0];
+  return (c&&(now-c.a)<=H12)?c:null;
+}
+
+/* storage: private per-person document when available, device copy always */
+function save(){
+  var keys=Object.keys(state.weeks).sort();
+  while(keys.length>40){delete state.weeks[keys.shift()];}
+  cacheLocal();
+  dirty=true;
+  flush();
+}
+function flush(){
+  if(!ref||writing||!dirty)return;
+  writing=true;dirty=false;
+  ref.set(JSON.parse(JSON.stringify(state))).then(function(){
+    writing=false;setSync('cloud');if(dirty)flush();
+  },function(){
+    writing=false;setSync('error');
+  });
+}
+function setSync(m){
+  var t={cloud:'Synced to your Claude account',local:'Saved on this device only',error:'Could not sync. Saved on this device.'};
+  $('sync').textContent=t[m]||t.local;
+}
+function connect(){
+  if(!IN_ARTIFACT){runFlag();return;}
+  try{
+    Promise.all([window.claude.use('db'),window.claude.use('user')]).then(function(r){
+      var db=r[0],user=r[1];
+      if(!db||!user){runFlag();return null;}
+      return user.id().then(function(uid){
+        if(!uid){runFlag();return;}
+        ref=db.doc('data/users/'+uid+'/state-v3');
+        ref.onSnapshot(function(snap){
+          if(snap.exists){
+            if(!writing&&!dirty){
+              var raw=snap.data();
+              state=norm(JSON.parse(JSON.stringify(raw)));
+              cacheLocal();
+              if(!raw||raw.wk!=='sun')dirty=true;
+              render();
+              if(dirty)flush();
+            }
+            setSync('cloud');
+          }else{
+            setSync('cloud');
+            if(hasData()){dirty=true;flush();}
+          }
+          runFlag();
+        },function(){ref=null;setSync('local');runFlag();});
+      });
+    }).catch(function(){runFlag();});
+  }catch(e){runFlag();}
+}
+
+/* punching. Within 12 hours of your first Start it is the same shift. After that it is a new day. */
+function flash(msg,ms){
+  flashMsg=msg;clearTimeout(flashTimer);
+  flashTimer=setTimeout(function(){flashMsg='';renderStatus(new Date());},ms||4500);
+  renderStatus(new Date());
+}
+function doStart(auto){
+  var now=new Date(),c0=candidates(now)[0];
+  if(c0&&(now-c0.a)<=H12){
+    var d=c0.d;
+    if(!d.out){flash('Already clocked in at '+tval(d.in)+'.',9000);return;}
+    d.out='';d.ret=(d.ret||0)+1;
+    save();render();flash('Back on the clock. Your earlier leave was cancelled.',9000);return;
+  }
+  var v=view(now);
+  if(v.real===0){flash('Sunday is manual entry only. Open This week\'s times and tap Sunday.',9000);return;}
+  var earliest=toMin(state.starts[state.shift])-EARLY,nm=now.getHours()*60+now.getMinutes();
+  if(earliest>0&&nm<earliest){
+    flash('Too early for a new '+(state.shift==='aft'?'afternoon':'day')+' shift. Earliest is '+clock(earliest)+'. Enter it by hand if it is real.',12000);return;
+  }
+  var wk=getWeek(v.key),cur=wk.days[v.real];
+  if(cur&&cur.in){
+    flash('Today already has a shift from '+tval(cur.in)+'. That leave stands as the clock out. Enter anything extra by hand.',12000);return;
+  }
+  wk.days[v.real]={in:hhmm(now),out:'',ret:0};
+  save();render();
+  if(auto)flash('Auto start recorded at '+tval(hhmm(now))+'.',9000);
+}
+function doEnd(auto){
+  var now=new Date(),c0=candidates(now)[0];
+  if(!c0||(now-c0.a)>H12){
+    flash(auto?'Got a leave signal but no shift started in the last 12 hours. Enter your times by hand.':'No shift started in the last 12 hours. Tap Start or enter the In time.',9000);return;
+  }
+  c0.d.out=hhmm(now);
+  save();render();
+  if(auto)flash('Auto end recorded at '+tval(c0.d.out)+'.',9000);
+}
+function readFlag(){
+  var f='';
+  try{var q=new URLSearchParams(window.location.search).get('punch');if(q)f=q;}catch(e){}
+  if(!f){
+    var h=(window.location.hash||'').replace('#','');
+    if(h==='punch-start')f='start';else if(h==='punch-end')f='end';
+  }
+  return (f==='start'||f==='end')?f:'';
+}
+function clearFlagFromUrl(){
+  try{window.history.replaceState(null,'',window.location.pathname);}catch(e){}
+}
+function runFlag(){
+  if(!pendingFlag)return;
+  var f=pendingFlag;pendingFlag='';clearTimeout(flagTimer);
+  var repeat=false;
+  try{var last=JSON.parse(localStorage.getItem(LS_FLAG)||'null');if(last&&last.f===f&&Date.now()-last.t<90000)repeat=true;}catch(e){}
+  clearFlagFromUrl();
+  if(repeat)return;
+  try{localStorage.setItem(LS_FLAG,JSON.stringify({f:f,t:Date.now()}));}catch(e){}
+  setTab('current');
+  if(f==='start')doStart(true);else doEnd(true);
+}
+
+/* planning */
+function calc(now,v,wk){
+  var w=weekTotal(wk),i,last=wk.sat?6:5,start=Math.max(1,v.today);
+  var a=activeShift(now);
+  if(a&&a.key===v.key&&a.i<start&&!a.d.out)start=a.i;
+  if(start===v.today&&v.today>=1){
+    var td=wk.days[v.today]||{};
+    if(!td.in&&now.getHours()>=(state.shift==='aft'?23:18))start=v.today+1;
+  }
+  var rem=[];
+  for(i=start;i<=last;i++){if(!done(wk.days[i]))rem.push(i);}
+  var n=rem.length,r={w:w,rem:rem,n:n,low:0,even:0,high:0,warn:''};
+  if(n>0){
+    var toCap=CAP-w,toTarget=TARGET-w;
+    r.low=Math.min(MAX_DAY,Math.max(STD_DAY,ceilQ(toTarget/n)));
+    r.even=Math.min(MAX_DAY,Math.max(STD_DAY,floorQ(toCap/n)));
+    r.high=Math.min(MAX_DAY,Math.max(STD_DAY,floorQ(toCap-(n-1)*STD_DAY)));
+    if(w+n*STD_DAY>CAP)r.warn='cap';
+    else if(w+n*MAX_DAY<TARGET)r.warn='short';
+  }
+  return r;
+}
+function outAt(i,hrs,wk){
+  var d=wk.days[i],s=(d&&d.in)?ceil15(toMin(d.in)):ceil15(toMin(state.starts[state.shift]));
+  var end=s+Math.round(hrs*60)+LUNCH;
+  return clock(end)+(end>=1440?' next day':'');
+}
+function verdict(total){
+  if(total>CAP+1e-9)return {t:'Past the cap by '+fmt(total-CAP),c:'bad'};
+  if(total>=TARGET-1e-9)return {t:'Inside the 58 to 60 window',c:'good'};
+  return {t:fmt(TARGET-total)+' under 58',c:'warn'};
+}
+
+/* current tab */
+function shownShift(now){
+  var a=activeShift(now);
+  if(a)return a;
+  var v=view(now);
+  if(v.real>=1)return {key:v.key,i:v.real,d:getWeek(v.key).days[v.real]||{}};
+  return null;
+}
+function renderStatus(now){
+  var v=view(now),t=shownShift(now);
+  var main=$('stMain'),sub=$('stSub'),s=$('startBtn'),e=$('endBtn');
+  if(!t){
+    main.textContent='Sunday';sub.textContent='Manual entry only. Open This week\'s times and tap Sunday.';
+    s.disabled=true;e.disabled=true;
+  }else{
+    var d=t.d;
+    var tag=(t.key!==v.key||t.i!==v.real)?FULL[t.i]+' shift. ':'';
+    var rets=d.ret?' · '+plural(d.ret,'return'):'';
+    if(d.in&&!d.out){
+      main.textContent='Clocked in '+tval(d.in);
+      sub.textContent=tag+'Counts from '+clock(ceil15(toMin(d.in)))+' · paid so far '+fmt(paid(d.in,hhmm(now)))+rets;
+      s.disabled=true;e.disabled=false;
+    }else if(d.in&&d.out){
+      main.textContent='Done: '+split(dayPaid(d))+' ('+fmt(dayPaid(d))+')';
+      sub.textContent=tag+'Counted '+clock(ceil15(toMin(d.in)))+' to '+clock(floor15(toMin(d.out)))+', lunch off'+rets;
+      s.disabled=false;e.disabled=false;
+    }else{
+      main.textContent='Not clocked in';
+      sub.textContent='Tap Start when your shift begins.';
+      s.disabled=false;e.disabled=true;
+    }
+  }
+  if(flashMsg)sub.textContent=flashMsg;
+}
+function renderPlan(now,v,wk,c){
+  var h='',more='',el=$('plan'),fold=$('planFold');
+  if(c.n===0){
+    var vd=verdict(c.w);
+    h+='<p class="eyebrow">No days left this week</p><p class="verdict '+vd.c+'">'+weekSplit(c.w)+'</p><p class="sub">'+fmt(c.w)+' total. '+vd.t+'.</p>';
+    el.innerHTML=h;fold.hidden=true;$('planSum').textContent='';return;
+  }
+  fold.hidden=false;
+  var first=c.rem[0];
+  var label=first===v.today?'Today':(first===v.today+1?'Tomorrow, '+NAMES[first]:FULL[first]);
+  h+='<p class="eyebrow">'+label+' · even split to reach 60</p>';
+  h+='<div class="big"><span class="std">'+tr(Math.min(c.even,STD_DAY))+'</span><small>+</small>'+tr(Math.max(0,c.even-STD_DAY))+'</div>';
+  h+='<p class="sub"><b>'+fmt(c.even)+'</b> paid. Clock out about <b>'+outAt(first,c.even,wk)+'</b>.</p>';
+  if(c.warn==='cap'){
+    h+='<p class="note bad"><b>Over the cap.</b> 8 hours on each of the '+c.n+' days left ends at '+weekSplit(c.w+c.n*STD_DAY)+', past 40 + 20. Drop a day or work short.</p>';
+  }else if(c.warn==='short'){
+    h+='<p class="note bad"><b>Cannot reach 58.</b> Even 12 hours on each of the '+c.n+' days left ends at '+weekSplit(c.w+c.n*MAX_DAY)+'. Turn on Saturday to add a day.</p>';
+  }
+  el.innerHTML=h;
+  var t12=c.w+c.n*MAX_DAY;
+  more+='<div class="chips">'+
+    '<div class="chip"><span>Least for 58</span><b>'+split(c.low)+'</b></div>'+
+    '<div class="chip"><span>Most that day</span><b>'+split(c.high)+'</b></div>'+
+    '<div class="chip"><span>All days at 8 ends</span><b>'+weekSplit(c.w+c.n*STD_DAY)+'</b></div>'+
+    '<div class="chip"><span>All days at 12 ends</span><b class="'+(t12>CAP?'bad':'')+'">'+weekSplit(t12)+(t12>CAP?' (over cap)':'')+'</b></div>'+
+  '</div>';
+  more+='<div class="rlist">';
+  c.rem.forEach(function(i){
+    var d=new Date(v.sun);d.setDate(d.getDate()+i);
+    more+='<div class="rrow"><span class="rd">'+NAMES[i]+'</span><span class="rdt">'+fmtDate(d)+'</span><span class="rh">'+split(c.even)+'</span><span class="ro">out '+outAt(i,c.even,wk)+'</span></div>';
+  });
+  more+='</div><p class="hint">'+plural(c.n,'day')+' left, '+fmt(CAP-c.w)+' under the cap.</p>';
+  $('planMore').innerHTML=more;
+  $('planSum').textContent=plural(c.n,'day')+' left';
+}
+function renderBar(c){
+  var w=c.w;
+  var t=$('wTotal');
+  t.className='t '+(w>CAP?'bad':(w>=TARGET?'good':''));
+  t.innerHTML=weekBig(w);
+  $('wMeta').textContent=fmt(w)+' total';
+  $('wBar').className='bar'+(w>CAP?' over':'');
+  $('barS').style.width=(Math.min(w,STD_WEEK)/CAP*100)+'%';
+  var o=Math.max(0,Math.min(w,CAP)-STD_WEEK);
+  $('barO').style.left=(STD_WEEK/CAP*100)+'%';
+  $('barO').style.width=(o/CAP*100)+'%';
+  $('lgS').textContent=tr(Math.min(w,STD_WEEK))+' of '+STD_WEEK;
+  $('lgO').textContent=tr(Math.max(0,w-STD_WEEK))+' of '+(TARGET-STD_WEEK);
+}
+function cellHtml(d,i,f){
+  var val=d[f],on=editing&&editing.i===i&&editing.f===f;
+  var txt=val?tval(val):'–';
+  var plus=(f==='out'&&crosses(d))?'<sup>+1</sup>':'';
+  return '<button type="button" class="tcell'+(val?'':' empty')+(on?' on':'')+'" data-day="'+i+'" data-f="'+f+'" aria-label="'+FULL[i]+' clock '+f+(val?', '+txt:', empty')+'">'+txt+plus+'</button>';
+}
+function renderDays(v,wk){
+  var h='',idx=[0,1,2,3,4,5],logged=0;
+  if(wk.sat||(wk.days[6]&&wk.days[6].in))idx.push(6);
+  idx.forEach(function(i){
+    var d=wk.days[i]||{};
+    var date=new Date(v.sun);date.setDate(date.getDate()+i);
+    var txt='–',pc='';
+    if(d.in&&d.out){
+      var p=dayPaid(d);logged++;
+      txt=split(p);pc=p>MAX_DAY?'bad':((p<STD_DAY&&i>=1&&i<=5)?'warn':'');
+    }else if(d.in){
+      if(i===v.today||i===v.today-1){txt='working';}else{txt='no out';pc='warn';}
+    }
+    h+='<div class="row'+(i===v.today?' today':'')+'">'+
+      '<div class="dn"><b>'+NAMES[i]+'</b><span>'+fmtDate(date)+'</span>'+(i===0?'<span>manual</span>':'')+(d.ret?'<span>'+plural(d.ret,'return')+'</span>':'')+'</div>'+
+      cellHtml(d,i,'in')+cellHtml(d,i,'out')+
+      '<div class="pd '+pc+'">'+txt+'</div>'+
+    '</div>';
+  });
+  $('days').innerHTML=h;
+  $('weekSum').textContent=plural(logged,'day')+' logged';
+}
+
+/* time editor with AM and PM */
+function renderEditor(){
+  var el=$('editor');
+  if(!editing){el.hidden=true;el.innerHTML='';return;}
+  el.hidden=false;
+  el.innerHTML='<h3>'+FULL[editing.i]+' · '+(editing.f==='in'?'Clock in':'Clock out')+'</h3>'+
+    '<div class="erow"><input type="text" id="editVal" inputmode="numeric" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="700" value="'+editing.digits+'" aria-label="Time, digits like 700 or 330">'+
+    '<div class="seg" role="group" aria-label="AM or PM"><button type="button" data-ap="AM" aria-pressed="'+(editing.ap==='AM')+'">AM</button><button type="button" data-ap="PM" aria-pressed="'+(editing.ap==='PM')+'">PM</button></div></div>'+
+    '<p class="emsg bad" id="editMsg" aria-live="polite"></p>'+
+    '<div class="eb"><button type="button" class="save" data-act="save">Save</button><button type="button" data-act="clear">Clear</button><button type="button" data-act="cancel">Cancel</button></div>';
+}
+function openEdit(i,f){
+  if(editing&&editing.i===i&&editing.f===f){closeEdit();return;}
+  var v=view(new Date()),d=getWeek(v.key).days[i]||{},cur=d[f],ap,digits='';
+  if(cur){var m=toMin(cur),h=Math.floor(m/60);ap=h>=12?'PM':'AM';digits=((h+11)%12+1)+':'+pad(m%60);}
+  else ap=(f==='in')?(state.shift==='aft'?'PM':'AM'):'PM';
+  editing={key:v.key,i:i,f:f,ap:ap,digits:digits};
+  renderEditor();renderDays(v,getWeek(v.key));
+  var inp=$('editVal');if(inp){inp.focus();try{inp.select();}catch(e){}}
+}
+function closeEdit(){
+  editing=null;renderEditor();
+  var v=view(new Date());renderDays(v,getWeek(v.key));
+}
+function editAction(act){
+  if(!editing)return;
+  var v=view(new Date()),wk=getWeek(editing.key||v.key),i=editing.i,f=editing.f;
+  if(act==='cancel'){closeEdit();return;}
+  var d=wk.days[i]||{};
+  if(act==='clear'){
+    delete d[f];
+    if(!d.in&&!d.out)delete wk.days[i];else wk.days[i]=d;
+    editing=null;renderEditor();save();render();return;
+  }
+  var val=parseEntry($('editVal').value,editing.ap);
+  if(val===null){
+    $('editMsg').textContent='Could not read that. Type digits like 700 or 330 and pick AM or PM.';
+    return;
+  }
+  d[f]=val;wk.days[i]=d;
+  editing=null;renderEditor();save();render();
+}
+
+function copyText(text,btn){
+  var o=btn.textContent;
+  function mark(ok){btn.textContent=ok?'Copied':'Press and hold the link to copy';setTimeout(function(){btn.textContent=o;},2200);}
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){mark(true);},function(){mark(false);});
+      return;
+    }
+  }catch(e){}
+  mark(false);
+}
+function renderAuto(){
+  var el=$('autoBody');
+  if(IN_ARTIFACT){
+    el.innerHTML='<p class="hint" style="margin:0">Automatic start and end needs a plain web address that opens without signing in. Put this page on GitHub Pages and the links for your iPhone Shortcuts show up here.</p>';
+    return;
+  }
+  var base=window.location.href.split('#')[0].split('?')[0];
+  var a=base+'?punch=start',b=base+'?punch=end';
+  el.innerHTML=
+    '<ol class="steps">'+
+    '<li>Open Shortcuts, tap Automation, tap +, choose Arrive, pick your workplace, set Run Immediately.</li>'+
+    '<li>Add the action Open URLs and paste the start link below.</li>'+
+    '<li>Make a second automation with Leave and the end link.</li>'+
+    '<li>Always open this page in Safari, not from a Home Screen icon, so every punch lands in the same record.</li>'+
+    '</ol>'+
+    '<div class="linkrow"><label for="lnkA">Start link (Arrive)</label><input type="text" id="lnkA" readonly value="'+a+'"><button class="link" type="button" data-copy="lnkA">Copy</button></div>'+
+    '<div class="linkrow"><label for="lnkB">End link (Leave)</label><input type="text" id="lnkB" readonly value="'+b+'"><button class="link" type="button" data-copy="lnkB">Copy</button></div>'+
+    '<p class="hint">The punch is stamped when the page opens, so a slow phone can run a minute or two late. The 15 minute rounding absorbs most of that. Coming back within 12 hours of your first Start is the same shift, so a trip to the other plant or a lunch drive stays paid. A leave you do not return from stands as your clock out. Sunday punches are ignored because Sunday is manual only.</p>';
+}
+
+/* analysis tab */
+function renderProj(v,wk,c){
+  var el=$('anaProj');
+  if(c.n===0){el.innerHTML='<p class="sub2">No days left this week. Total '+weekSplit(c.w)+' ('+fmt(c.w)+').</p>';return;}
+  var names=c.rem.map(function(i){return NAMES[i];}).join(', ');
+  var h='<p class="sub2">From '+weekSplit(c.w)+' ('+fmt(c.w)+') with '+plural(c.n,'day')+' left: '+names+'.</p>';
+  function row(label,total,extra){
+    var vd=verdict(total);
+    return '<div class="arow"><span class="l">'+label+'</span><span class="v '+vd.c+'">'+weekSplit(total)+'</span><span class="d">'+fmt(total)+'. '+(extra||vd.t)+'.</span></div>';
+  }
+  h+=row('Every day at 8',c.w+c.n*STD_DAY);
+  var t12=c.w+c.n*MAX_DAY;
+  h+=row('Every day at 12',t12,t12>CAP?'Past the cap by '+fmt(t12-CAP)+'. The most you can log is 40 + 20 ('+fmt(CAP)+')':null);
+  h+=row('Even split to reach 60',c.w+c.n*c.even);
+  el.innerHTML=h;
+}
+function splitOrOff(x){return x<=0?'off':split(x);}
+/* what-if: weekdays start at an even split, Saturday and Sunday are always there and start at zero */
+function renderWhat(v,wk,c){
+  var el=$('anaWhat');
+  var weekRem=c.rem.filter(function(i){return i>=1&&i<=5;});
+  var nW=weekRem.length;
+  var evenW=nW>0?Math.min(MAX_DAY,Math.max(STD_DAY,floorQ((CAP-c.w)/nW))):0;
+  var items=weekRem.map(function(i){return {i:i,def:evenW,opt:false};});
+  if(v.today===0&&!done(wk.days[0]))items.unshift({i:0,def:0,opt:true});
+  if(!done(wk.days[6]))items.push({i:6,def:0,opt:true});
+  if(!items.length){el.innerHTML='<p class="sub2">Every day this week is already logged.</p>';return;}
+  var key=v.key+':'+tr(c.w)+':'+items.map(function(m){return m.i;}).join(',');
+  if(what.key!==key){what.key=key;what.vals={};items.forEach(function(m){what.vals[m.i]=m.def;});}
+  what.w=c.w;what.items=items;
+  var h='<p class="sub2">Drag a day to see where the week lands. Optional days start at zero. Nothing here is saved.</p>';
+  items.forEach(function(m){
+    h+='<div class="srow"><label for="sl-'+m.i+'">'+NAMES[m.i]+(m.opt?'<small>optional</small>':'')+'</label><input type="range" id="sl-'+m.i+'" data-i="'+m.i+'" min="0" max="12" step="0.25" value="'+what.vals[m.i]+'"><span class="sv" id="sv-'+m.i+'">'+splitOrOff(what.vals[m.i])+'</span></div>';
+  });
+  h+='<div class="whatout" id="whatOut"></div><button class="link" id="whatReset" type="button">Reset sliders</button>';
+  el.innerHTML=h;
+  updateWhat();
+}
+function updateWhat(){
+  var out=$('whatOut');if(!out)return;
+  var sum=0,low=false;
+  what.items.forEach(function(m){var x=what.vals[m.i];sum+=x;if(!m.opt&&x>0&&x<STD_DAY)low=true;});
+  var total=what.w+sum,vd=verdict(total);
+  out.innerHTML='<div class="w '+vd.c+'">'+weekBig(total)+'</div><p>'+fmt(total)+' total. '+vd.t+'.'+(low?' A weekday under 8 hours is under your daily standard.':'')+'</p>';
+}
+function chartData(v,wk,c){
+  var idx=[1,2,3,4,5],out=[];
+  if(wk.days[0]&&wk.days[0].in)idx.unshift(0);
+  if(wk.sat||(wk.days[6]&&wk.days[6].in))idx.push(6);
+  idx.forEach(function(i){
+    var d=wk.days[i]||{},fin=done(d),h=fin?dayPaid(d):0;
+    var plan=(!fin&&c.rem.indexOf(i)>=0)?c.even:0;
+    out.push({i:i,d:d,h:h,plan:plan,fin:fin,today:i===v.today});
+  });
+  return out;
+}
+function roundTop(x,y,w,h,r){
+  r=Math.min(r,h,w/2);
+  return 'M'+x+','+(y+h)+'L'+x+','+(y+r)+'Q'+x+','+y+' '+(x+r)+','+y+'L'+(x+w-r)+','+y+'Q'+(x+w)+','+y+' '+(x+w)+','+(y+r)+'L'+(x+w)+','+(y+h)+'Z';
+}
+function rectP(x,y,w,h){return 'M'+x+','+(y+h)+'L'+x+','+y+'L'+(x+w)+','+y+'L'+(x+w)+','+(y+h)+'Z';}
+function renderChart(v,wk,c){
+  var data=chartData(v,wk,c);chartRows=data;
+  var W=336,H=196,L=30,R=8,T=20,B=28,pw=W-L-R,ph=H-T-B,k=data.length;
+  var maxV=12;data.forEach(function(m){maxV=Math.max(maxV,m.h,m.plan);});
+  maxV=Math.ceil(maxV/4)*4;
+  function y(h){return T+ph-(h/maxV)*ph;}
+  var band=pw/k,bw=Math.min(24,band-12),base=T+ph,g='';
+  for(var t=0;t<=maxV;t+=4){
+    g+='<line class="gl" x1="'+L+'" x2="'+(W-R)+'" y1="'+y(t)+'" y2="'+y(t)+'"/>'+
+       '<text class="ax" x="'+(L-6)+'" y="'+(y(t)+3.5)+'" text-anchor="end">'+t+'</text>';
+  }
+  g+='<line class="l8" x1="'+L+'" x2="'+(W-R)+'" y1="'+y(STD_DAY)+'" y2="'+y(STD_DAY)+'"/>';
+  var maxIdx=-1,maxH=0;data.forEach(function(m,ix){if(m.h>maxH){maxH=m.h;maxIdx=ix;}});
+  data.forEach(function(m,ix){
+    var cx=L+band*(ix+.5),x=cx-bw/2;
+    if(m.h>0){
+      var s=Math.min(m.h,STD_DAY),o=m.h-s;
+      if(o>0){
+        g+='<path class="m-s" d="'+rectP(x,y(s),bw,base-y(s))+'"/>';
+        var oy=y(m.h),oh=Math.max(1,(y(STD_DAY)-2)-oy);
+        g+='<path class="'+(m.h>MAX_DAY?'m-b':'m-o')+'" d="'+roundTop(x,oy,bw,oh,4)+'"/>';
+      }else{
+        g+='<path class="m-s" d="'+roundTop(x,y(s),bw,base-y(s),4)+'"/>';
+      }
+      if(ix===maxIdx)g+='<text class="ax td" x="'+cx+'" y="'+(y(m.h)-6)+'" text-anchor="middle">'+split(m.h)+'</text>';
+    }else if(m.plan>0){
+      var ps=Math.min(m.plan,STD_DAY),po=m.plan-ps;
+      if(po>0){
+        g+='<path class="g-s" d="'+rectP(x,y(ps),bw,base-y(ps))+'"/>';
+        var pyy=y(m.plan);
+        g+='<path class="g-o" d="'+roundTop(x,pyy,bw,Math.max(1,(y(STD_DAY)-2)-pyy),4)+'"/>';
+      }else{
+        g+='<path class="g-s" d="'+roundTop(x,y(ps),bw,base-y(ps),4)+'"/>';
+      }
+    }
+    g+='<text class="ax'+(m.today?' td':'')+'" x="'+cx+'" y="'+(H-9)+'" text-anchor="middle">'+NAMES[m.i]+'</text>';
+    var lab=NAMES[m.i]+': '+(m.fin?split(m.h)+', '+fmt(m.h):(m.plan>0?'plan '+split(m.plan):'no hours'));
+    g+='<rect class="hit" data-ix="'+ix+'" x="'+(L+band*ix)+'" y="'+T+'" width="'+band+'" height="'+ph+'" tabindex="0" role="img" aria-label="'+lab+'"/>';
+  });
+  $('chartMount').innerHTML='<svg viewBox="0 0 '+W+' '+H+'" role="group" aria-label="Paid hours by day, with the 8 hour standard line">'+g+'</svg>';
+  renderChartTable(data);
+}
+function renderChartTable(data){
+  var h='<div class="ctable"><div class="crow head"><span>Day</span><span>In</span><span>Out</span><span>Paid</span></div>';
+  data.forEach(function(m){
+    h+='<div class="crow"><span>'+NAMES[m.i]+'</span><span>'+(m.d.in?tval(m.d.in):'–')+'</span><span>'+(m.d.out?tval(m.d.out):'–')+'</span><span>'+(m.fin?split(m.h):(m.plan>0?'plan '+split(m.plan):'–'))+'</span></div>';
+  });
+  h+='</div>';
+  $('chartTable').innerHTML=h;
+  $('chartTable').hidden=!showTable;
+  $('chartMount').hidden=showTable;
+  $('chartLegend').hidden=showTable;
+  $('chartTblBtn').textContent=showTable?'Show as chart':'Show as table';
+}
+function showTip(el){
+  var m=chartRows[+el.getAttribute('data-ix')];if(!m)return;
+  var tip=$('tip');tip.textContent='';
+  var b=document.createElement('b');
+  b.textContent=m.fin?split(m.h):(m.plan>0?'Plan '+split(m.plan):'No hours');
+  var s1=document.createElement('span');
+  s1.textContent=FULL[m.i]+(m.fin?' · '+fmt(m.h)+' paid':'');
+  tip.appendChild(b);tip.appendChild(s1);
+  if(m.d.in){
+    var s2=document.createElement('span');
+    s2.textContent='In '+tval(m.d.in)+(m.d.out?' · Out '+tval(m.d.out)+(crosses(m.d)?' next day':''):'');
+    tip.appendChild(s2);
+  }
+  if(m.d.ret){var s3=document.createElement('span');s3.textContent=plural(m.d.ret,'return');tip.appendChild(s3);}
+  tip.hidden=false;
+  var box=$('chartBox').getBoundingClientRect(),r=el.getBoundingClientRect();
+  var left=r.left-box.left+r.width/2-tip.offsetWidth/2;
+  left=Math.max(0,Math.min(left,box.width-tip.offsetWidth));
+  tip.style.left=left+'px';tip.style.top='0px';
+}
+function hideTip(){$('tip').hidden=true;}
+
+/* history tab */
+function renderHistory(v){
+  var el=$('histBody');
+  var keys=Object.keys(state.weeks).filter(function(k){var w=state.weeks[k];return w&&w.days&&Object.keys(w.days).length;}).sort().reverse();
+  if(!keys.length){el.innerHTML='<p class="sub2">Weeks you log show up here with their totals, so you can check them against your pay stub.</p>';return;}
+  var tot=0,ot=0;
+  keys.forEach(function(k){var w=weekTotal(state.weeks[k]);tot+=w;ot+=Math.max(0,w-STD_WEEK);});
+  var h='<div class="stats"><div class="stat"><span>Weeks</span><b>'+keys.length+'</b></div>'+
+    '<div class="stat"><span>Average week</span><b>'+weekSplit(tot/keys.length)+'</b></div>'+
+    '<div class="stat"><span>Overtime logged</span><b>'+tr(ot)+'h</b></div></div>';
+  keys.forEach(function(k){
+    var wk=state.weeks[k],w=weekTotal(wk),mon=parseKey(k),end=new Date(mon);end.setDate(end.getDate()+6);
+    var miss=0;
+    if(k!==v.key){for(var q=0;q<=6;q++){var dq=wk.days[q];if(dq&&dq.in&&!dq.out)miss++;}}
+    var pill;
+    if(k===v.key)pill='<span class="pill n">In progress</span>';
+    else if(w>CAP+1e-9)pill='<span class="pill bad">Over cap</span>';
+    else if(w>=TARGET-1e-9)pill='<span class="pill good">Inside 58 to 60</span>';
+    else pill='<span class="pill warn">Under 58</span>';
+    h+='<details class="wk" data-k="'+k+'"'+(openWk[k]?' open':'')+'><summary><span class="wd">'+fmtDate(mon)+' to '+fmtDate(end)+'</span><span class="wt">'+weekSplit(w)+'</span><span class="wm">'+fmt(w)+' total'+(miss?' · '+plural(miss,'day')+' missing a clock out, not counted':'')+'</span>'+pill+'</summary><div class="wbody">';
+    for(var i=0;i<=6;i++){
+      var d=wk.days[i];if(!d)continue;
+      var date=new Date(mon);date.setDate(date.getDate()+i);
+      var tm=d.in?tval(d.in)+' to '+(d.out?tval(d.out)+(crosses(d)?' (next day)':''):'no out'):'–';
+      h+='<div class="hrow"><span class="a">'+NAMES[i]+' '+fmtDate(date)+'</span><span class="b">'+tm+(d.ret?' · '+plural(d.ret,'return'):'')+'</span><span class="c">'+(done(d)?split(dayPaid(d)):'–')+'</span></div>';
+    }
+    h+='</div></details>';
+  });
+  el.innerHTML=h;
+}
+
+/* tabs and shared render */
+function setTab(name){
+  tab=name;
+  try{localStorage.setItem(LS_TAB,name);}catch(e){}
+  ['current','analysis','history'].forEach(function(n){
+    var id=n.charAt(0).toUpperCase()+n.slice(1);
+    $('tab'+id).setAttribute('aria-selected',String(n===name));
+    $('p'+id).hidden=(n!==name);
+  });
+}
+function syncShift(){
+  var btns=$('shiftSeg').querySelectorAll('button');
+  for(var i=0;i<btns.length;i++)btns[i].setAttribute('aria-pressed',String(btns[i].getAttribute('data-shift')===state.shift));
+  $('usual').value=state.starts[state.shift];
+  $('setSum').textContent=(state.shift==='aft'?'Afternoon':'Day')+' · '+tval(state.starts[state.shift]);
+}
+function buildStartOptions(){
+  var h='';
+  for(var m=0;m<1440;m+=15)h+='<option value="'+pad(Math.floor(m/60))+':'+pad(m%60)+'">'+clock(m)+'</option>';
+  $('usual').innerHTML=h;
+}
+function render(){
+  var now=new Date(),v=view(now),wk=getWeek(v.key),c=calc(now,v,wk);
+  if(editing&&editing.key!==v.key){editing=null;renderEditor();}
+  $('satToggle').checked=!!wk.sat;
+  syncShift();
+  $('weekLabel').textContent='Week of '+fmtDate(v.sun);
+  renderStatus(now);
+  renderPlan(now,v,wk,c);
+  renderBar(c);
+  renderDays(v,wk);
+  renderProj(v,wk,c);
+  renderWhat(v,wk,c);
+  renderChart(v,wk,c);
+  renderHistory(v);
+  $('clearBtn').textContent=clearArmed?'Tap again to clear':'Clear this week';
+  $('clearBtn').className='link'+(clearArmed?' armed':'');
+}
+
+/* wiring */
+$('startBtn').addEventListener('click',function(){doStart(false);});
+$('endBtn').addEventListener('click',function(){doEnd(false);});
+$('satToggle').addEventListener('change',function(e){
+  var v=view(new Date());getWeek(v.key).sat=e.target.checked;save();render();
+});
+$('shiftSeg').addEventListener('click',function(e){
+  var b=e.target.closest?e.target.closest('button'):null;
+  if(!b)return;
+  state.shift=b.getAttribute('data-shift')==='aft'?'aft':'day';
+  save();render();
+});
+$('usual').addEventListener('change',function(e){
+  state.starts[state.shift]=e.target.value;save();render();
+});
+document.querySelector('.tabs').addEventListener('click',function(e){
+  var b=e.target.closest?e.target.closest('[data-tab]'):null;
+  if(b)setTab(b.getAttribute('data-tab'));
+});
+$('days').addEventListener('click',function(e){
+  var b=e.target.closest?e.target.closest('.tcell'):null;
+  if(b)openEdit(+b.getAttribute('data-day'),b.getAttribute('data-f'));
+});
+$('editor').addEventListener('click',function(e){
+  var b=e.target.closest?e.target.closest('button'):null;
+  if(!b)return;
+  if(b.hasAttribute('data-ap')){
+    if(editing){editing.digits=$('editVal').value;editing.ap=b.getAttribute('data-ap');renderEditor();$('editVal').focus();}
+    return;
+  }
+  var act=b.getAttribute('data-act');
+  if(act)editAction(act);
+});
+$('editor').addEventListener('keydown',function(e){
+  if(e.key==='Enter'){e.preventDefault();editAction('save');}
+  else if(e.key==='Escape'){closeEdit();}
+});
+$('autoBody').addEventListener('click',function(e){
+  var b=e.target.closest?e.target.closest('[data-copy]'):null;
+  if(!b)return;
+  var inp=$(b.getAttribute('data-copy'));
+  if(inp){try{inp.select();}catch(x){}copyText(inp.value,b);}
+});
+$('anaWhat').addEventListener('input',function(e){
+  var t=e.target;
+  if(t.type!=='range')return;
+  var i=t.getAttribute('data-i');
+  what.vals[i]=parseFloat(t.value)||0;
+  $('sv-'+i).textContent=splitOrOff(what.vals[i]);
+  updateWhat();
+});
+$('anaWhat').addEventListener('click',function(e){
+  if(e.target&&e.target.id==='whatReset'){what.key='';render();}
+});
+$('chartTblBtn').addEventListener('click',function(){showTable=!showTable;var n=new Date(),v=view(n),wk=getWeek(v.key);renderChart(v,wk,calc(n,v,wk));});
+var cm=$('chartMount');
+cm.addEventListener('pointermove',function(e){var h=e.target.closest?e.target.closest('.hit'):null;if(h)showTip(h);else hideTip();});
+cm.addEventListener('pointerleave',hideTip);
+cm.addEventListener('focusin',function(e){var h=e.target.closest?e.target.closest('.hit'):null;if(h)showTip(h);});
+cm.addEventListener('focusout',hideTip);
+$('histBody').addEventListener('toggle',function(e){
+  var d=e.target;
+  if(d&&d.getAttribute&&d.getAttribute('data-k'))openWk[d.getAttribute('data-k')]=d.open;
+},true);
+$('clearBtn').addEventListener('click',function(){
+  if(!clearArmed){
+    clearArmed=true;clearTimeout(clearTimer);
+    clearTimer=setTimeout(function(){clearArmed=false;render();},4000);
+    render();return;
+  }
+  clearArmed=false;clearTimeout(clearTimer);
+  var v=view(new Date());
+  delete state.weeks[v.key];
+  editing=null;renderEditor();
+  save();render();
+});
+document.addEventListener('visibilitychange',function(){if(!document.hidden)render();});
+setInterval(function(){renderStatus(new Date());},30000);
+
+pendingFlag=readFlag();
+if(pendingFlag)flagTimer=setTimeout(runFlag,3500);
+buildStartOptions();
+setTab(tab);
+render();
+renderAuto();
+setSync('local');
+connect();
+})();
+</script>
+
+</body></html>
