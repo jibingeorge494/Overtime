@@ -173,6 +173,13 @@ input[type=text],select{
 .srow label{font-weight:600;line-height:1.1}
 .srow label small{display:block;font-weight:400;font-size:11px;color:var(--muted)}
 .srow .sv{font:700 17px/1 var(--display);text-align:right}
+.so{margin:-2px 0 10px 0;display:flex;align-items:center;gap:8px;font:500 13px/1.3 var(--mono);color:var(--muted)}
+.so label{font-weight:600;color:var(--fg)}
+.so select.ss{width:auto;min-width:112px;padding:9px 8px;font-size:14px}
+.so b{color:var(--fg);font-weight:600}
+.stbox{margin:0 0 14px;padding:12px 14px;border-radius:8px;background:var(--bg);border:1px solid var(--line)}
+.stbox label{display:block;font-weight:600;margin-bottom:8px}
+.stbox .sn{margin:8px 0 0;font-size:13px;color:var(--muted)}
 input[type=range]{width:100%;accent-color:var(--accent);height:32px;margin:0}
 .whatout{margin:12px 0 14px;padding:14px;border-radius:8px;background:var(--bg);border:1px solid var(--line)}
 .whatout .w{font:700 44px/1 var(--display);letter-spacing:.01em}
@@ -459,7 +466,7 @@ cacheLocal();
 var ref=null,writing=false,dirty=false;
 var flashMsg='',flashTimer=0,clearArmed=false,clearTimer=0;
 var pendingFlag='',flagTimer=0;
-var tab='current',editing=null,what={key:'',vals:{},w:0,items:[]},showTable=false,chartRows=[],openWk={};
+var tab='current',editing=null,what={key:'',vals:{},w:0,items:[],starts:{}},showTable=false,chartRows=[],openWk={};
 try{var st=localStorage.getItem(LS_TAB);if(st==='analysis'||st==='history')tab=st;}catch(e){}
 
 function getWeek(key){
@@ -855,6 +862,18 @@ function renderProj(v,wk,c){
   el.innerHTML=h;
 }
 function splitOrOff(x){return x<=0?'off':split(x);}
+/* what-if start time: each day starts at the usual time for your current shift unless you change that day */
+function whatStart(i){return what.starts[i]||state.starts[state.shift];}
+function outLine(i,x){
+  if(x<=0)return 'off';
+  var end=ceil15(toMin(whatStart(i)))+Math.round(x*60)+LUNCH;
+  return 'out about <b>'+clock(end)+'</b>'+(end>=1440?' next day':'');
+}
+function startOptions(sel){
+  var h='';
+  for(var m=0;m<1440;m+=15){var v=pad(Math.floor(m/60))+':'+pad(m%60);h+='<option value="'+v+'"'+(v===sel?' selected':'')+'>'+clock(m)+'</option>';}
+  return h;
+}
 /* what-if: weekdays start at an even split, Saturday and Sunday are always there and start at zero */
 function renderWhat(v,wk,c){
   var el=$('anaWhat');
@@ -868,11 +887,12 @@ function renderWhat(v,wk,c){
   var key=v.key+':'+tr(c.w)+':'+items.map(function(m){return m.i;}).join(',');
   if(what.key!==key){what.key=key;what.vals={};items.forEach(function(m){what.vals[m.i]=m.def;});}
   what.w=c.w;what.items=items;
-  var h='<p class="sub2">Drag a day to see where the week lands. Optional days start at zero. Nothing here is saved.</p>';
+  var h='<p class="sub2">Drag a day to see where the week lands and when you would clock out. Optional days start at zero. Nothing here is saved.</p>';
+  h+='<p class="sub2">Each day starts at your usual '+(state.shift==='aft'?'afternoon':'day')+' time, '+tval(state.starts[state.shift])+'. Change a day\'s start if it will be earlier or later.</p>';
   items.forEach(function(m){
-    h+='<div class="srow"><label for="sl-'+m.i+'">'+NAMES[m.i]+(m.opt?'<small>optional</small>':'')+'</label><input type="range" id="sl-'+m.i+'" data-i="'+m.i+'" min="0" max="12" step="0.25" value="'+what.vals[m.i]+'"><span class="sv" id="sv-'+m.i+'">'+splitOrOff(what.vals[m.i])+'</span></div>';
+    h+='<div class="srow"><label for="sl-'+m.i+'">'+NAMES[m.i]+(m.opt?'<small>optional</small>':'')+'</label><input type="range" id="sl-'+m.i+'" data-i="'+m.i+'" min="0" max="12" step="0.25" value="'+what.vals[m.i]+'"><span class="sv" id="sv-'+m.i+'">'+splitOrOff(what.vals[m.i])+'</span></div><div class="so"><label for="st-'+m.i+'">In</label><select class="ss" id="st-'+m.i+'" data-i="'+m.i+'">'+startOptions(whatStart(m.i))+'</select><span id="ot-'+m.i+'">'+outLine(m.i,what.vals[m.i])+'</span></div>';
   });
-  h+='<div class="whatout" id="whatOut"></div><button class="link" id="whatReset" type="button">Reset sliders</button>';
+  h+='<div class="whatout" id="whatOut"></div><button class="link" id="whatReset" type="button">Reset sliders and start time</button>';
   el.innerHTML=h;
   updateWhat();
 }
@@ -1094,10 +1114,18 @@ $('anaWhat').addEventListener('input',function(e){
   var i=t.getAttribute('data-i');
   what.vals[i]=parseFloat(t.value)||0;
   $('sv-'+i).textContent=splitOrOff(what.vals[i]);
+  $('ot-'+i).innerHTML=outLine(i,what.vals[i]);
   updateWhat();
 });
+$('anaWhat').addEventListener('change',function(e){
+  var t=e.target;
+  if(!t||!t.classList||!t.classList.contains('ss'))return;
+  var i=t.getAttribute('data-i');
+  what.starts[i]=t.value;
+  $('ot-'+i).innerHTML=outLine(i,what.vals[i]);
+});
 $('anaWhat').addEventListener('click',function(e){
-  if(e.target&&e.target.id==='whatReset'){what.key='';render();}
+  if(e.target&&e.target.id==='whatReset'){what.key='';what.starts={};render();}
 });
 $('chartTblBtn').addEventListener('click',function(){showTable=!showTable;var n=new Date(),v=view(n),wk=getWeek(v.key);renderChart(v,wk,calc(n,v,wk));});
 var cm=$('chartMount');
